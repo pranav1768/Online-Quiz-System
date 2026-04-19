@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Admin — Users</title>
+  <link rel="stylesheet" href="../css/style.css"/>
+</head>
+<body>
+
+<nav class="navbar">
+  <h1>Quiz<span>System</span> <span style="font-size:0.7rem;background:#3498db;color:white;padding:2px 8px;border-radius:4px;margin-left:6px">ADMIN</span></h1>
+  <div class="navbar-links" id="navbar-user"></div>
+</nav>
+
+<div class="layout">
+  <div class="sidebar">
+    <a href="dashboard.html">🏠 Dashboard</a>
+    <a href="quizzes.html">📝 Manage Quizzes</a>
+    <a href="create-quiz.html">➕ Create Quiz</a>
+    <a href="results.html">📊 All Results</a>
+    <a href="users.html" class="active">👥 Users</a>
+    <a href="javascript:logout()">🚪 Logout</a>
+  </div>
+
+  <div class="main">
+    <p class="page-title">All Users</p>
+    <p class="page-sub">Students and admins registered on the platform</p>
+
+    <div id="loading" class="spinner-wrap"><div class="spinner"></div></div>
+
+    <div class="card hidden" id="table-card">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>#</th><th>Name</th><th>Email</th><th>Role</th></tr>
+          </thead>
+          <tbody id="user-rows"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="../js/app.js"></script>
+<script>
+  requireAdmin();
+  fillNavbar();
+
+  async function load() {
+    const { ok, data } = await GET('/admin/users');
+    document.getElementById('loading').classList.add('hidden');
+    if (!ok) { alert('Could not load users.'); return; }
+
+    document.getElementById('user-rows').innerHTML = data.users.map((u, i) => `
+      <tr>
+        <td>${i + 1}</td>
+        <td><strong>${u.name}</strong></td>
+        <td style="color:#666">${u.email}</td>
+        <td><span class="badge ${u.role === 'admin' ? 'badge-blue' : 'badge-green'}">${u.role}</span></td>
+      </tr>
+    `).join('');
+
+    document.getElementById('table-card').classList.remove('hidden');
+  }
+
+  load();
+</script>
+
+</body>
+</html>

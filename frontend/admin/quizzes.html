@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Admin — Quizzes</title>
+  <link rel="stylesheet" href="../css/style.css"/>
+</head>
+<body>
+
+<nav class="navbar">
+  <h1>Quiz<span>System</span> <span style="font-size:0.7rem;background:#3498db;color:white;padding:2px 8px;border-radius:4px;margin-left:6px">ADMIN</span></h1>
+  <div class="navbar-links" id="navbar-user"></div>
+</nav>
+
+<div class="layout">
+  <div class="sidebar">
+    <a href="dashboard.html">🏠 Dashboard</a>
+    <a href="quizzes.html" class="active">📝 Manage Quizzes</a>
+    <a href="create-quiz.html">➕ Create Quiz</a>
+    <a href="results.html">📊 All Results</a>
+    <a href="users.html">👥 Users</a>
+    <a href="javascript:logout()">🚪 Logout</a>
+  </div>
+
+  <div class="main">
+    <div class="flex-between" style="margin-bottom:20px">
+      <div>
+        <p class="page-title">Manage Quizzes</p>
+        <p class="page-sub">All quizzes on the platform</p>
+      </div>
+      <a href="create-quiz.html" class="btn btn-blue">+ Create Quiz</a>
+    </div>
+
+    <div id="loading" class="spinner-wrap"><div class="spinner"></div></div>
+
+    <div class="card hidden" id="table-card">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Title</th><th>Questions</th><th>Time Limit</th><th>Pass Mark</th><th>Actions</th></tr>
+          </thead>
+          <tbody id="quiz-rows"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div id="empty" class="card text-center hidden">
+      <p style="color:#888;padding:20px">No quizzes yet.</p>
+      <a href="create-quiz.html" class="btn btn-blue">Create First Quiz</a>
+    </div>
+  </div>
+</div>
+
+<script src="../js/app.js"></script>
+<script>
+  requireAdmin();
+  fillNavbar();
+
+  async function load() {
+    const { ok, data } = await GET('/admin/quizzes');
+    document.getElementById('loading').classList.add('hidden');
+    if (!ok) { alert('Could not load quizzes.'); return; }
+
+    const quizzes = data.quizzes;
+    if (quizzes.length === 0) { document.getElementById('empty').classList.remove('hidden'); return; }
+
+    document.getElementById('quiz-rows').innerHTML = quizzes.map(q => `
+      <tr id="row-${q.id}">
+        <td>
+          <strong>${q.title}</strong>
+          <div style="font-size:0.8rem;color:#888">${q.description?.substring(0,60) || ''}${q.description?.length > 60 ? '...' : ''}</div>
+        </td>
+        <td>${q.total_questions}</td>
+        <td>${q.time_limit} mins</td>
+        <td>${q.pass_mark}%</td>
+        <td>
+          <button class="btn btn-red btn-sm" onclick="deleteQuiz(${q.id}, '${q.title}')">Delete</button>
+        </td>
+      </tr>
+    `).join('');
+
+    document.getElementById('table-card').classList.remove('hidden');
+  }
+
+  async function deleteQuiz(id, title) {
+    if (!confirm(`Delete "${title}"? This will also delete all student results for this quiz.`)) return;
+
+    const { ok } = await DELETE(`/admin/quizzes/${id}`);
+    if (!ok) { alert('Could not delete quiz.'); return; }
+
+    document.getElementById(`row-${id}`)?.remove();
+    alert('Quiz deleted.');
+  }
+
+  load();
+</script>
+
+</body>
+</html>

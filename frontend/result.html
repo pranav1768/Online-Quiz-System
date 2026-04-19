@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Quiz System — Your Result</title>
+  <link rel="stylesheet" href="css/style.css"/>
+</head>
+<body>
+
+<nav class="navbar">
+  <h1>Quiz<span>System</span></h1>
+  <div class="navbar-links" id="navbar-user"></div>
+</nav>
+
+<div class="container" style="max-width:700px">
+
+  <div id="result-area" class="hidden">
+
+    <!-- Score Circle -->
+    <div class="card text-center" style="padding:40px">
+      <div id="score-circle" class="result-circle">
+        <span id="score-pct" class="result-pct"></span>
+        <span style="font-size:0.8rem;color:#888">Score</span>
+      </div>
+
+      <h2 id="result-title" style="font-size:1.5rem;margin-bottom:8px"></h2>
+      <p id="result-sub" style="color:#666"></p>
+
+      <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:16px">
+        <span id="badge-result" class="badge" style="font-size:0.9rem;padding:6px 16px"></span>
+        <span id="badge-score"  class="badge badge-blue" style="font-size:0.9rem;padding:6px 16px"></span>
+      </div>
+    </div>
+
+    <!-- Action Buttons -->
+    <div style="display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap">
+      <a href="dashboard.html" class="btn btn-gray">← Back to Dashboard</a>
+      <a href="my-results.html" class="btn btn-blue">My Results History</a>
+    </div>
+
+  </div>
+
+  <div id="no-result" class="card text-center hidden">
+    <p style="color:#888;padding:20px">No result found. Please take a quiz first.</p>
+    <a href="dashboard.html" class="btn btn-blue">Go to Dashboard</a>
+  </div>
+
+</div>
+
+<script src="js/app.js"></script>
+<script>
+  requireLogin();
+  fillNavbar();
+
+  // Get the result we saved after submitting
+  const result = JSON.parse(localStorage.getItem('lastResult') || 'null');
+
+  if (!result) {
+    document.getElementById('no-result').classList.remove('hidden');
+  } else {
+    localStorage.removeItem('lastResult'); // clear it after showing
+
+    const passed  = result.passed;
+    const percent = result.percent.toFixed(1);
+
+    // Score circle
+    const circle = document.getElementById('score-circle');
+    const pctEl  = document.getElementById('score-pct');
+    circle.classList.add(passed ? 'pass' : 'fail');
+    pctEl.textContent = percent + '%';
+    pctEl.classList.add(passed ? 'pass' : 'fail');
+
+    // Title and message
+    document.getElementById('result-title').textContent = passed ? '🎉 Congratulations!' : '😔 Better luck next time!';
+    document.getElementById('result-sub').textContent   = passed
+      ? `You passed with ${percent}%!`
+      : `You scored ${percent}%. Pass mark is ${result.passMark}%.`;
+
+    // Badges
+    const badge = document.getElementById('badge-result');
+    badge.textContent = passed ? 'PASSED' : 'FAILED';
+    badge.classList.add(passed ? 'badge-green' : 'badge-red');
+
+    document.getElementById('badge-score').textContent = `${result.score} / ${result.total} correct`;
+
+    document.getElementById('result-area').classList.remove('hidden');
+  }
+</script>
+
+</body>
+</html>

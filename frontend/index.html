@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Quiz System — Login</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+<div class="auth-wrapper">
+  <div class="auth-box">
+
+    <!-- Logo -->
+    <div class="auth-logo">
+      <h2>Quiz<span>System</span></h2>
+      <p>Online Quiz Platform</p>
+    </div>
+
+    <!-- Tabs -->
+    <div class="tabs">
+      <button class="tab-btn active" onclick="showTab('login')">Login</button>
+      <button class="tab-btn"        onclick="showTab('register')">Register</button>
+    </div>
+
+    <!-- Message box (shows errors) -->
+    <div id="msg" class="alert hidden"></div>
+
+    <!-- ── LOGIN FORM ── -->
+    <div id="login-form">
+      <div class="form-group">
+        <label class="form-label">Email</label>
+        <input id="login-email" type="email" class="form-input" placeholder="you@example.com" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Password</label>
+        <input id="login-pass" type="password" class="form-input" placeholder="Your password" />
+      </div>
+      <button class="btn btn-blue btn-full" onclick="doLogin()">Login</button>
+
+      <p style="font-size:0.8rem;color:#888;margin-top:16px;text-align:center">
+        Demo admin: <strong>admin@quiz.com</strong> / <strong>admin123</strong>
+      </p>
+    </div>
+
+    <!-- ── REGISTER FORM ── -->
+    <div id="register-form" class="hidden">
+      <div class="form-group">
+        <label class="form-label">Full Name</label>
+        <input id="reg-name" type="text" class="form-input" placeholder="John Doe" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Email</label>
+        <input id="reg-email" type="email" class="form-input" placeholder="you@example.com" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Password (min 6 characters)</label>
+        <input id="reg-pass" type="password" class="form-input" placeholder="Password" />
+      </div>
+      <button class="btn btn-green btn-full" onclick="doRegister()">Create Account</button>
+    </div>
+
+  </div>
+</div>
+
+<script src="js/app.js"></script>
+<script>
+  // If already logged in, go to dashboard
+  if (getToken()) {
+    const user = getUser();
+    window.location.href = user.role === 'admin' ? 'admin/dashboard.html' : 'dashboard.html';
+  }
+
+  // Switch between Login and Register tabs
+  function showTab(tab) {
+    document.getElementById('login-form').classList.toggle('hidden', tab !== 'login');
+    document.getElementById('register-form').classList.toggle('hidden', tab !== 'register');
+    document.querySelectorAll('.tab-btn').forEach((btn, i) => {
+      btn.classList.toggle('active', (i === 0 && tab === 'login') || (i === 1 && tab === 'register'));
+    });
+    document.getElementById('msg').classList.add('hidden');
+  }
+
+  // Login
+  async function doLogin() {
+    const email    = document.getElementById('login-email').value.trim();
+    const password = document.getElementById('login-pass').value;
+
+    if (!email || !password) {
+      showMessage('msg', 'Please enter your email and password.'); return;
+    }
+
+    const { ok, data } = await POST('/auth/login', { email, password });
+
+    if (!ok) {
+      showMessage('msg', data.message); return;
+    }
+
+    saveLogin(data.token, data.user);
+    // Redirect based on role
+    window.location.href = data.user.role === 'admin' ? 'admin/dashboard.html' : 'dashboard.html';
+  }
+
+  // Register
+  async function doRegister() {
+    const name     = document.getElementById('reg-name').value.trim();
+    const email    = document.getElementById('reg-email').value.trim();
+    const password = document.getElementById('reg-pass').value;
+
+    if (!name || !email || !password) {
+      showMessage('msg', 'Please fill in all fields.'); return;
+    }
+
+    const { ok, data } = await POST('/auth/register', { name, email, password });
+
+    if (!ok) {
+      showMessage('msg', data.message); return;
+    }
+
+    showMessage('msg', 'Account created! You can now login.', 'green');
+    showTab('login');
+    document.getElementById('login-email').value = email;
+  }
+
+  // Press Enter to login
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Enter') doLogin();
+  });
+</script>
+
+</body>
+</html>
