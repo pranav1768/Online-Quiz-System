@@ -1,4 +1,4 @@
--- Run this file in MySQL Workbench to set up the database
+-- Run this file in MySQL Workbench to set up the database 
 
 CREATE DATABASE IF NOT EXISTS quiz_db;
 USE quiz_db;
