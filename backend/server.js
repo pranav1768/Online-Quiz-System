@@ -415,4 +415,3 @@ app.listen(PORT, () => {
   console.log(`📋 Login: POST http://localhost:${PORT}/auth/login`);
   console.log(`📝 Quizzes: GET http://localhost:${PORT}/quizzes\n`);
 });
-   
