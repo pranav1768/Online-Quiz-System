@@ -63,4 +63,4 @@ INSERT INTO questions (quiz_id, question, option_a, option_b, option_c, option_d
 (1, 'Which method adds to the end of an array?', 'push()', 'pop()', 'shift()', 'add()', 'A'),
 (1, 'What does typeof null return?', 'null', 'undefined', 'object', 'number', 'C'),
 (1, 'Which is NOT a JavaScript data type?', 'String', 'Boolean', 'Integer', 'Number', 'C');
- 
+  
