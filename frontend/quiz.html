@@ -1,217 +1,346 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Quiz System — Take Quiz</title>
-  <link rel="stylesheet" href="css/style.css"/>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>QuizSys — Take Quiz</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <style>
+    body { overflow-x: hidden; }
+    .quiz-header {
+      position: sticky; top: 0; z-index: 50;
+      background: rgba(13,17,23,0.95); backdrop-filter: blur(10px);
+      border-bottom: 1px solid var(--border);
+      padding: 1rem 1.5rem;
+      display: flex; align-items: center; justify-content: space-between;
+      flex-wrap: wrap; gap: 0.75rem;
+    }
+    .quiz-main { max-width: 780px; margin: 2rem auto; padding: 0 1.5rem 4rem; }
+    .nav-btns  { display: flex; gap: 0.75rem; align-items: center; justify-content: space-between; margin-top: 1.5rem; }
+
+    /* Confirm modal */
+    #confirm-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.75);
+      z-index: 200; display: none; align-items: center; justify-content: center;
+    }
+    #confirm-overlay.open { display: flex; }
+  </style>
 </head>
 <body>
 
-<!-- Navbar -->
-<nav class="navbar">
-  <h1>Quiz<span>System</span></h1>
-  <div class="navbar-links" id="navbar-user"></div>
-</nav>
+  <!-- Loading screen -->
+  <div id="loading-screen" style="min-height:100vh;display:flex;align-items:center;justify-content:center;">
+    <div style="text-align:center">
+      <div class="spinner" style="margin:0 auto 1rem"></div>
+      <p>Loading quiz...</p>
+    </div>
+  </div>
 
-<div class="container" style="max-width:700px">
-
-  <!-- Loading -->
-  <div id="loading" class="spinner-wrap"><div class="spinner"></div></div>
-
-  <!-- Quiz Area (hidden until loaded) -->
-  <div id="quiz-area" class="hidden">
-
-    <h2 id="quiz-title" style="margin-bottom:5px"></h2>
-    <p id="quiz-desc" style="color:#666;margin-bottom:20px;font-size:0.9rem"></p>
-
-    <!-- Timer -->
+  <!-- Quiz UI (hidden until loaded) -->
+  <div id="quiz-ui" class="hidden">
+    <!-- Timer bar -->
     <div class="timer-bar"><div id="timer-fill" class="timer-fill" style="width:100%"></div></div>
-    <div id="timer-display" class="timer-display">00:00</div>
 
-    <!-- Progress text -->
-    <p style="text-align:center;color:#888;font-size:0.85rem;margin-bottom:20px">
-      Question <span id="current-num">1</span> of <span id="total-num">0</span>
-      &nbsp;|&nbsp; <span id="answered-count">0</span> answered
-    </p>
-
-    <!-- Question Card -->
-    <div id="question-box" class="question-box">
-      <p class="question-num" id="question-num">Question 1</p>
-      <p class="question-text" id="question-text"></p>
-      <div id="options-list"></div>
+    <!-- Header -->
+    <div class="quiz-header">
+      <div>
+        <div style="font-size:0.75rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em">Quiz</div>
+        <div id="quiz-title" style="font-weight:600;font-size:1rem"></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:1rem">
+        <div id="timer-display" class="timer-display">⏱ 00:00</div>
+        <button class="btn btn-danger btn-sm" onclick="openConfirm()">Submit Quiz</button>
+      </div>
     </div>
 
-    <!-- Navigation Buttons -->
-    <div style="display:flex;gap:12px;margin-top:20px">
-      <button class="btn btn-gray"  id="btn-prev" onclick="prevQuestion()">← Previous</button>
-      <button class="btn btn-blue"  id="btn-next" onclick="nextQuestion()">Next →</button>
-      <button class="btn btn-green hidden" id="btn-submit" onclick="submitQuiz()">Submit Quiz ✓</button>
-    </div>
+    <!-- Main -->
+    <div class="quiz-main">
+      <!-- Progress -->
+      <div style="margin-bottom:1.5rem">
+        <div style="display:flex;justify-content:space-between;font-size:0.82rem;color:var(--text-muted);margin-bottom:0.4rem">
+          <span id="q-progress-text">Question 0 of 0</span>
+          <span id="q-answered-text">0 answered</span>
+        </div>
+        <div class="progress"><div id="progress-fill" class="progress-fill" style="width:0%"></div></div>
+      </div>
 
-  </div>
+      <!-- Navigation dots -->
+      <div id="q-nav" class="q-nav"></div>
 
-</div>
+      <!-- Questions -->
+      <div id="questions-container"></div>
 
-<!-- Confirm Submit Popup -->
-<div id="confirm-box" class="hidden" style="
-  position:fixed;inset:0;background:rgba(0,0,0,0.5);
-  display:flex;align-items:center;justify-content:center;z-index:999
-">
-  <div class="card" style="max-width:400px;width:90%">
-    <h3 style="margin-bottom:10px">Submit Quiz?</h3>
-    <p id="confirm-msg" style="color:#666;margin-bottom:20px;font-size:0.9rem"></p>
-    <div style="display:flex;gap:10px;justify-content:flex-end">
-      <button class="btn btn-gray"  onclick="closeConfirm()">Cancel</button>
-      <button class="btn btn-green" onclick="confirmSubmit()">Yes, Submit</button>
+      <!-- Prev / Next -->
+      <div class="nav-btns">
+        <button id="btn-prev" class="btn btn-secondary" onclick="goTo(currentQ - 1)" disabled>← Prev</button>
+        <button id="btn-next" class="btn btn-primary"   onclick="goTo(currentQ + 1)">Next →</button>
+      </div>
     </div>
   </div>
-</div>
 
-<script src="js/app.js"></script>
-<script>
-  requireLogin();
-  fillNavbar();
+  <!-- Timeout overlay -->
+  <div id="timeout-overlay" class="hidden" style="position:fixed;inset:0;background:rgba(0,0,0,0.9);z-index:300;display:none;align-items:center;justify-content:center;flex-direction:column;text-align:center;padding:2rem;">
+    <div style="font-size:4rem">⏰</div>
+    <h2 style="margin:1rem 0 0.5rem;color:var(--danger)">Time's Up!</h2>
+    <p style="margin-bottom:1.5rem">Your quiz has been automatically submitted.</p>
+    <div class="spinner" id="submit-spinner"></div>
+  </div>
 
-  // Get quiz ID from URL
-  const quizId    = new URLSearchParams(location.search).get('id');
-  if (!quizId) location.href = 'dashboard.html';
+  <!-- Confirm Submit Modal -->
+  <div id="confirm-overlay">
+    <div class="modal" style="max-width:440px">
+      <div class="modal-header">
+        <span class="modal-title">Submit Quiz?</span>
+        <button class="modal-close" onclick="closeConfirm()">✕</button>
+      </div>
+      <p style="margin-bottom:0.5rem">You are about to submit your quiz. This action cannot be undone.</p>
+      <div id="unanswered-warning" class="alert alert-warning hidden" style="margin-top:0.75rem"></div>
+      <div style="display:flex;gap:0.75rem;margin-top:1.5rem;justify-content:flex-end">
+        <button class="btn btn-secondary" onclick="closeConfirm()">Cancel</button>
+        <button id="btn-confirm-submit" class="btn btn-danger" onclick="submitQuiz()">Yes, Submit</button>
+      </div>
+    </div>
+  </div>
 
-  let questions   = [];    // all questions
-  let currentIdx  = 0;     // which question we're on
-  let answers     = {};    // { questionId: 'A', questionId: 'B', ... }
-  let totalSeconds;        // total timer seconds
-  let timerInterval;
+  <script src="js/utils.js"></script>
+  <script>
+    if (!Auth.requireAuth()) throw new Error('not auth');
 
-  // ── Load quiz and questions ───────────────────────────────
-  async function loadQuiz() {
-    const { ok, data } = await GET(`/quizzes/${quizId}/questions`);
-    document.getElementById('loading').classList.add('hidden');
+    const params  = new URLSearchParams(location.search);
+    const quizId  = parseInt(params.get('id'));
+    if (!quizId) { location.href = 'dashboard.html'; }
 
-    if (!ok) { alert('Could not load quiz.'); location.href = 'dashboard.html'; return; }
+    let attemptId, timeLimitAt, questions = [], currentQ = 0;
+    let answers = {};   // { questionId: optionId }
+    let timerInterval;
 
-    questions = data.questions;
-    const quiz = data.quiz;
+    // -------------------------------------------------------
+    // INIT
+    // -------------------------------------------------------
+    async function initQuiz() {
+      try {
+        const { ok, data } = await API.post(`/quizzes/${quizId}/start`, {});
+        if (!ok) {
+          document.getElementById('loading-screen').innerHTML = `
+            <div style="text-align:center;padding:2rem">
+              <div style="font-size:3rem">⚠️</div>
+              <h3 style="margin:1rem 0;color:var(--danger)">${data.message}</h3>
+              <a href="dashboard.html" class="btn btn-secondary">← Back to Dashboard</a>
+            </div>
+          `;
+          return;
+        }
 
-    document.getElementById('quiz-title').textContent = quiz.title;
-    document.getElementById('quiz-desc').textContent  = quiz.description || '';
-    document.getElementById('total-num').textContent  = questions.length;
+        attemptId  = data.attemptId;
+        timeLimitAt = new Date(data.timeLimitAt);
+        questions   = data.questions;
 
-    startTimer(quiz.time_limit);
-    showQuestion(0);
-    document.getElementById('quiz-area').classList.remove('hidden');
-  }
+        document.getElementById('quiz-title').textContent = '';
+        // Get quiz title
+        const quizRes = await API.get(`/quizzes/${quizId}`);
+        if (quizRes.ok) document.getElementById('quiz-title').textContent = quizRes.data.quiz.title;
 
-  // ── Show a question ───────────────────────────────────────
-  function showQuestion(index) {
-    const q = questions[index];
-    currentIdx = index;
+        renderQuestions();
+        renderDots();
+        startTimer();
 
-    document.getElementById('question-num').textContent  = `Question ${index + 1} of ${questions.length}`;
-    document.getElementById('question-text').textContent = q.question;
-    document.getElementById('current-num').textContent   = index + 1;
-    document.getElementById('answered-count').textContent = Object.keys(answers).length;
+        document.getElementById('loading-screen').classList.add('hidden');
+        document.getElementById('quiz-ui').classList.remove('hidden');
+      } catch (err) {
+        document.getElementById('loading-screen').innerHTML = `
+          <div style="text-align:center">
+            <p style="color:var(--danger)">Failed to load quiz. Check server connection.</p>
+            <a href="dashboard.html" class="btn btn-secondary mt-2">← Back</a>
+          </div>
+        `;
+      }
+    }
 
-    // Show/hide navigation buttons
-    document.getElementById('btn-prev').style.display   = index === 0 ? 'none' : '';
-    document.getElementById('btn-next').classList.toggle('hidden', index === questions.length - 1);
-    document.getElementById('btn-submit').classList.toggle('hidden', index !== questions.length - 1);
-
-    // Build options A, B, C, D
-    const optionLabels = ['A', 'B', 'C', 'D'];
-    const optionValues = [q.option_a, q.option_b, q.option_c, q.option_d];
-    const selected     = answers[q.id];
-
-    const optionsHTML = optionLabels
-      .filter((_, i) => optionValues[i])  // skip empty options (C and D are optional)
-      .map(label => {
-        const text       = optionValues[optionLabels.indexOf(label)];
-        const isSelected = selected === label;
+    // -------------------------------------------------------
+    // RENDER QUESTIONS
+    // -------------------------------------------------------
+    function renderQuestions() {
+      const container = document.getElementById('questions-container');
+      container.innerHTML = questions.map((q, idx) => {
+        const opts = (typeof q.options === 'string' ? JSON.parse(q.options) : q.options) || [];
         return `
-          <div class="option ${isSelected ? 'selected' : ''}" onclick="selectAnswer('${q.id}', '${label}', this)">
-            <input type="radio" name="answer" value="${label}" ${isSelected ? 'checked' : ''} />
-            <label><strong>${label}.</strong> ${text}</label>
+          <div class="question-card ${idx === 0 ? 'active' : ''}" id="qcard-${idx}">
+            <div class="question-num">Question ${idx + 1} of ${questions.length}</div>
+            <div class="question-text">${escapeHtml(q.question_text)}</div>
+            <div class="question-pts mono">⭐ ${q.points} point${q.points > 1 ? 's' : ''}</div>
+            <ul class="options-list">
+              ${opts.map(opt => `
+                <li class="option-item" id="opt-item-${q.id}-${opt.id}" onclick="selectOption(${q.id}, ${opt.id}, ${idx})">
+                  <input type="radio" name="q-${q.id}" id="opt-${q.id}-${opt.id}" value="${opt.id}" />
+                  <label class="option-label" for="opt-${q.id}-${opt.id}">${escapeHtml(opt.text)}</label>
+                </li>
+              `).join('')}
+            </ul>
           </div>
         `;
       }).join('');
+    }
 
-    document.getElementById('options-list').innerHTML = optionsHTML;
-  }
+    // -------------------------------------------------------
+    // RENDER DOTS
+    // -------------------------------------------------------
+    function renderDots() {
+      const nav = document.getElementById('q-nav');
+      nav.innerHTML = questions.map((q, idx) => `
+        <div class="q-dot ${idx === 0 ? 'current' : ''}" id="dot-${idx}" onclick="goTo(${idx})">${idx + 1}</div>
+      `).join('');
+    }
 
-  // ── User selects an answer ────────────────────────────────
-  function selectAnswer(questionId, answer, clickedEl) {
-    // Save the answer
-    answers[questionId] = answer;
+    // -------------------------------------------------------
+    // NAVIGATION
+    // -------------------------------------------------------
+    function goTo(idx) {
+      if (idx < 0 || idx >= questions.length) return;
 
-    // Highlight selected option
-    document.querySelectorAll('.option').forEach(el => el.classList.remove('selected'));
-    clickedEl.classList.add('selected');
+      document.getElementById(`qcard-${currentQ}`)?.classList.remove('active');
+      document.getElementById(`dot-${currentQ}`)?.classList.remove('current');
 
-    // Update answered count
-    document.getElementById('answered-count').textContent = Object.keys(answers).length;
-  }
+      currentQ = idx;
 
-  // ── Navigate questions ────────────────────────────────────
-  function nextQuestion() { if (currentIdx < questions.length - 1) showQuestion(currentIdx + 1); }
-  function prevQuestion() { if (currentIdx > 0) showQuestion(currentIdx - 1); }
+      document.getElementById(`qcard-${currentQ}`).classList.add('active');
+      document.getElementById(`dot-${currentQ}`).classList.add('current');
 
-  // ── Timer ─────────────────────────────────────────────────
-  function startTimer(minutes) {
-    totalSeconds     = minutes * 60;
-    let remaining    = totalSeconds;
-    const fill       = document.getElementById('timer-fill');
-    const display    = document.getElementById('timer-display');
+      document.getElementById('btn-prev').disabled = currentQ === 0;
+      document.getElementById('btn-next').textContent = currentQ === questions.length - 1 ? 'Finish →' : 'Next →';
+      document.getElementById('q-progress-text').textContent = `Question ${currentQ + 1} of ${questions.length}`;
+      updateProgress();
+    }
 
-    timerInterval = setInterval(() => {
-      remaining--;
-      display.textContent = toMMSS(remaining);
-      fill.style.width    = `${(remaining / totalSeconds) * 100}%`;
+    // -------------------------------------------------------
+    // SELECT OPTION
+    // -------------------------------------------------------
+    async function selectOption(questionId, optionId, qIdx) {
+      // Update UI
+      const qCard = document.getElementById(`qcard-${qIdx}`);
+      qCard.querySelectorAll('.option-item').forEach(el => el.classList.remove('selected'));
+      document.getElementById(`opt-item-${questionId}-${optionId}`).classList.add('selected');
+      document.getElementById(`opt-${questionId}-${optionId}`).checked = true;
 
-      // Change color when time is running out
-      fill.className    = 'timer-fill';
-      display.className = 'timer-display';
-      if (remaining <= 60)  { fill.classList.add('warn');   display.classList.add('warn');   }
-      if (remaining <= 30)  { fill.classList.add('danger'); display.classList.add('danger'); }
-
-      if (remaining <= 0) {
-        clearInterval(timerInterval);
-        alert('Time is up! Submitting your quiz now.');
-        confirmSubmit();
+      answers[questionId] = optionId;
+      document.getElementById(`dot-${qIdx}`).classList.add('answered');
+      if (document.getElementById(`dot-${qIdx}`).classList.contains('current')) {
+        document.getElementById(`dot-${qIdx}`).classList.add('current');
       }
-    }, 1000);
-  }
+      updateProgress();
 
-  // ── Submit Quiz ───────────────────────────────────────────
-  function submitQuiz() {
-    const unanswered = questions.length - Object.keys(answers).length;
-    document.getElementById('confirm-msg').textContent = unanswered > 0
-      ? `You have ${unanswered} unanswered question(s). They will be marked wrong. Are you sure?`
-      : 'You have answered all questions. Ready to submit?';
-    document.getElementById('confirm-box').classList.remove('hidden');
-  }
+      // Auto-save to server
+      try {
+        await API.post(`/quizzes/attempts/${attemptId}/answer`, {
+          questionId, optionId,
+        });
+      } catch (err) {
+        Toast.show('Failed to save answer. Check connection.', 'warning');
+      }
+    }
 
-  function closeConfirm() {
-    document.getElementById('confirm-box').classList.add('hidden');
-  }
+    // -------------------------------------------------------
+    // TIMER
+    // -------------------------------------------------------
+    function startTimer() {
+      const fill    = document.getElementById('timer-fill');
+      const display = document.getElementById('timer-display');
+      const total   = (timeLimitAt - Date.now()) / 1000;
 
-  async function confirmSubmit() {
-    clearInterval(timerInterval);
-    closeConfirm();
+      timerInterval = setInterval(() => {
+        const remaining = Math.max(0, (timeLimitAt - Date.now()) / 1000);
+        const pct       = (remaining / total) * 100;
 
-    const { ok, data } = await POST(`/quizzes/${quizId}/submit`, { answers });
+        display.textContent = `⏱ ${secondsToMMSS(Math.ceil(remaining))}`;
+        fill.style.width    = `${pct}%`;
 
-    if (!ok) { alert('Could not submit. Try again.'); return; }
+        fill.className    = 'timer-fill';
+        display.className = 'timer-display';
 
-    // Save result to show on result page
-    localStorage.setItem('lastResult', JSON.stringify(data));
-    window.location.href = 'result.html';
-  }
+        if (remaining <= 60)  { fill.classList.add('warning'); display.classList.add('warning'); }
+        if (remaining <= 30)  { fill.classList.add('danger');  display.classList.add('danger');  }
 
-  // ── Warn user before closing tab ─────────────────────────
-  window.onbeforeunload = () => 'Are you sure? Your quiz progress will be lost!';
+        if (remaining <= 0) {
+          clearInterval(timerInterval);
+          autoSubmit();
+        }
+      }, 1000);
+    }
 
-  loadQuiz();
-</script>
+    async function autoSubmit() {
+      document.getElementById('timeout-overlay').style.display = 'flex';
+      document.getElementById('timeout-overlay').classList.remove('hidden');
+      try {
+        const { data } = await API.post(`/quizzes/attempts/${attemptId}/submit`, {});
+        setTimeout(() => window.location.href = `results.html?attemptId=${attemptId}`, 2000);
+      } catch (err) {
+        setTimeout(() => window.location.href = `results.html?attemptId=${attemptId}`, 2000);
+      }
+    }
 
+    // -------------------------------------------------------
+    // SUBMIT
+    // -------------------------------------------------------
+    function openConfirm() {
+      const unanswered = questions.length - Object.keys(answers).length;
+      const warn = document.getElementById('unanswered-warning');
+      if (unanswered > 0) {
+        warn.textContent = `⚠ You have ${unanswered} unanswered question${unanswered > 1 ? 's' : ''}. These will be marked as wrong.`;
+        warn.classList.remove('hidden');
+      } else {
+        warn.classList.add('hidden');
+      }
+      document.getElementById('confirm-overlay').classList.add('open');
+    }
+
+    function closeConfirm() {
+      document.getElementById('confirm-overlay').classList.remove('open');
+    }
+
+    async function submitQuiz() {
+      clearInterval(timerInterval);
+      setLoading('btn-confirm-submit', true);
+      try {
+        const { ok, data } = await API.post(`/quizzes/attempts/${attemptId}/submit`, {});
+        if (!ok && data.message !== 'Time is up! Quiz auto-submitted.') {
+          Toast.show(data.message || 'Submission failed.', 'error');
+          setLoading('btn-confirm-submit', false);
+          return;
+        }
+        window.location.href = `results.html?attemptId=${attemptId}`;
+      } catch (err) {
+        Toast.show('Network error during submission.', 'error');
+        setLoading('btn-confirm-submit', false);
+      }
+    }
+
+    // -------------------------------------------------------
+    // UTILS
+    // -------------------------------------------------------
+    function updateProgress() {
+      const answered = Object.keys(answers).length;
+      const pct      = (answered / questions.length) * 100;
+      document.getElementById('progress-fill').style.width = `${pct}%`;
+      document.getElementById('q-answered-text').textContent = `${answered} answered`;
+    }
+
+    function escapeHtml(str) {
+      const d = document.createElement('div');
+      d.textContent = str || '';
+      return d.innerHTML;
+    }
+
+    // Prevent accidental navigation
+    window.addEventListener('beforeunload', e => {
+      e.preventDefault();
+      e.returnValue = '';
+    });
+
+    // Close modal on overlay click
+    document.getElementById('confirm-overlay').addEventListener('click', function(e) {
+      if (e.target === this) closeConfirm();
+    });
+
+    initQuiz();
+  </script>
 </body>
 </html>

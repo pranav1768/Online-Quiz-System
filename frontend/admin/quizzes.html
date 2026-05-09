@@ -1,100 +1,171 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Admin — Quizzes</title>
-  <link rel="stylesheet" href="../css/style.css"/>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>QuizSys — Manage Quizzes</title>
+  <link rel="stylesheet" href="../css/style.css" />
 </head>
 <body>
+  <nav class="navbar">
+    <a class="navbar-brand" href="dashboard.html">Quiz<span>Sys</span> <span style="font-size:0.7rem;color:var(--purple);font-family:var(--font);font-weight:600;background:rgba(188,140,255,0.1);border-radius:4px;padding:2px 6px">ADMIN</span></a>
+    <div class="navbar-links" id="navbar-links"></div>
+  </nav>
 
-<nav class="navbar">
-  <h1>Quiz<span>System</span> <span style="font-size:0.7rem;background:#3498db;color:white;padding:2px 8px;border-radius:4px;margin-left:6px">ADMIN</span></h1>
-  <div class="navbar-links" id="navbar-user"></div>
-</nav>
+  <div class="sidebar-layout">
+    <aside class="sidebar">
+      <nav class="sidebar-nav">
+        <a href="dashboard.html">🏠 Dashboard</a>
+        <a href="quizzes.html" class="active">📝 Manage Quizzes</a>
+        <a href="create-quiz.html">➕ Create Quiz</a>
+        <a href="users.html">👥 Users</a>
+        <a href="results.html">📊 All Results</a>
+        <hr class="sidebar-divider" />
+        <a href="javascript:Auth.logout()">🚪 Logout</a>
+      </nav>
+    </aside>
 
-<div class="layout">
-  <div class="sidebar">
-    <a href="dashboard.html">🏠 Dashboard</a>
-    <a href="quizzes.html" class="active">📝 Manage Quizzes</a>
-    <a href="create-quiz.html">➕ Create Quiz</a>
-    <a href="results.html">📊 All Results</a>
-    <a href="users.html">👥 Users</a>
-    <a href="javascript:logout()">🚪 Logout</a>
+    <main class="main-content">
+      <div class="page-header">
+        <div>
+          <h2>Manage Quizzes</h2>
+          <p>View, toggle, or delete quizzes</p>
+        </div>
+        <a href="create-quiz.html" class="btn btn-primary">+ Create Quiz</a>
+      </div>
+
+      <div id="loading" class="spinner-wrap"><div class="spinner"></div></div>
+
+      <div id="main-ui" class="hidden">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Title</th>
+                <th>Questions</th>
+                <th>Duration</th>
+                <th>Pass%</th>
+                <th>Attempts</th>
+                <th>Avg Score</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="quizzes-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div id="empty" class="hidden" style="text-align:center;padding:4rem">
+        <div style="font-size:3rem">📝</div>
+        <h3 style="font-family:var(--font);margin-top:1rem">No quizzes yet</h3>
+        <a href="create-quiz.html" class="btn btn-primary mt-2">+ Create Your First Quiz</a>
+      </div>
+    </main>
   </div>
 
-  <div class="main">
-    <div class="flex-between" style="margin-bottom:20px">
-      <div>
-        <p class="page-title">Manage Quizzes</p>
-        <p class="page-sub">All quizzes on the platform</p>
+  <!-- Delete Confirm Modal -->
+  <div class="modal-overlay" id="delete-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <span class="modal-title">Delete Quiz</span>
+        <button class="modal-close" onclick="closeDelete()">✕</button>
       </div>
-      <a href="create-quiz.html" class="btn btn-blue">+ Create Quiz</a>
-    </div>
-
-    <div id="loading" class="spinner-wrap"><div class="spinner"></div></div>
-
-    <div class="card hidden" id="table-card">
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr><th>Title</th><th>Questions</th><th>Time Limit</th><th>Pass Mark</th><th>Actions</th></tr>
-          </thead>
-          <tbody id="quiz-rows"></tbody>
-        </table>
+      <p>Are you sure you want to delete <strong id="delete-quiz-name"></strong>? All attempts and results will also be deleted. This cannot be undone.</p>
+      <div style="display:flex;gap:0.75rem;margin-top:1.5rem;justify-content:flex-end">
+        <button class="btn btn-secondary" onclick="closeDelete()">Cancel</button>
+        <button id="btn-confirm-delete" class="btn btn-danger" onclick="confirmDelete()">Delete Quiz</button>
       </div>
-    </div>
-
-    <div id="empty" class="card text-center hidden">
-      <p style="color:#888;padding:20px">No quizzes yet.</p>
-      <a href="create-quiz.html" class="btn btn-blue">Create First Quiz</a>
     </div>
   </div>
-</div>
 
-<script src="../js/app.js"></script>
-<script>
-  requireAdmin();
-  fillNavbar();
+  <script src="../js/utils.js"></script>
+  <script>
+    if (!Auth.requireAuth(true)) throw new Error();
+    populateNavbar('admin');
 
-  async function load() {
-    const { ok, data } = await GET('/admin/quizzes');
-    document.getElementById('loading').classList.add('hidden');
-    if (!ok) { alert('Could not load quizzes.'); return; }
+    let deleteTargetId = null;
 
-    const quizzes = data.quizzes;
-    if (quizzes.length === 0) { document.getElementById('empty').classList.remove('hidden'); return; }
+    async function load() {
+      const { ok, data } = await API.get('/admin/quizzes');
+      document.getElementById('loading').classList.add('hidden');
+      if (!ok) { Toast.show('Failed to load quizzes', 'error'); return; }
 
-    document.getElementById('quiz-rows').innerHTML = quizzes.map(q => `
-      <tr id="row-${q.id}">
-        <td>
-          <strong>${q.title}</strong>
-          <div style="font-size:0.8rem;color:#888">${q.description?.substring(0,60) || ''}${q.description?.length > 60 ? '...' : ''}</div>
-        </td>
-        <td>${q.total_questions}</td>
-        <td>${q.time_limit} mins</td>
-        <td>${q.pass_mark}%</td>
-        <td>
-          <button class="btn btn-red btn-sm" onclick="deleteQuiz(${q.id}, '${q.title}')">Delete</button>
-        </td>
-      </tr>
-    `).join('');
+      const quizzes = data.quizzes;
+      if (quizzes.length === 0) { document.getElementById('empty').classList.remove('hidden'); return; }
 
-    document.getElementById('table-card').classList.remove('hidden');
-  }
+      document.getElementById('quizzes-tbody').innerHTML = quizzes.map(q => `
+        <tr id="row-${q.id}">
+          <td>
+            <div style="font-weight:600">${escapeHtml(q.title)}</div>
+            <div style="font-size:0.78rem;color:var(--text-muted)">${escapeHtml(q.description || '—').substring(0,60)}${q.description?.length > 60 ? '...' : ''}</div>
+          </td>
+          <td class="mono">${q.question_count}</td>
+          <td>${q.duration_minutes} min</td>
+          <td>${q.passing_score}%</td>
+          <td class="mono">${q.attempt_count}</td>
+          <td>${q.avg_score ? q.avg_score + '%' : '—'}</td>
+          <td>
+            <span class="badge ${q.is_active ? 'badge-success' : 'badge-danger'}" id="status-badge-${q.id}">
+              ${q.is_active ? 'Active' : 'Inactive'}
+            </span>
+          </td>
+          <td>
+            <div style="display:flex;gap:0.4rem;flex-wrap:wrap">
+              <button class="btn btn-secondary btn-sm" onclick="toggleQuiz(${q.id})" id="toggle-btn-${q.id}">
+                ${q.is_active ? 'Deactivate' : 'Activate'}
+              </button>
+              <button class="btn btn-danger btn-sm" onclick="openDelete(${q.id}, '${escapeHtml(q.title)}')">Delete</button>
+            </div>
+          </td>
+        </tr>
+      `).join('');
 
-  async function deleteQuiz(id, title) {
-    if (!confirm(`Delete "${title}"? This will also delete all student results for this quiz.`)) return;
+      document.getElementById('main-ui').classList.remove('hidden');
+    }
 
-    const { ok } = await DELETE(`/admin/quizzes/${id}`);
-    if (!ok) { alert('Could not delete quiz.'); return; }
+    async function toggleQuiz(id) {
+      const btn = document.getElementById(`toggle-btn-${id}`);
+      btn.disabled = true;
+      const { ok, data } = await API.patch(`/admin/quizzes/${id}/toggle`, {});
+      btn.disabled = false;
+      if (!ok) { Toast.show('Failed to toggle quiz', 'error'); return; }
 
-    document.getElementById(`row-${id}`)?.remove();
-    alert('Quiz deleted.');
-  }
-  
-  load();
-</script>
+      const badge = document.getElementById(`status-badge-${id}`);
+      badge.textContent = data.is_active ? 'Active' : 'Inactive';
+      badge.className   = `badge ${data.is_active ? 'badge-success' : 'badge-danger'}`;
+      btn.textContent   = data.is_active ? 'Deactivate' : 'Activate';
+      Toast.show(`Quiz ${data.is_active ? 'activated' : 'deactivated'}.`, 'success');
+    }
 
+    function openDelete(id, name) {
+      deleteTargetId = id;
+      document.getElementById('delete-quiz-name').textContent = name;
+      document.getElementById('delete-modal').classList.add('open');
+    }
+
+    function closeDelete() {
+      document.getElementById('delete-modal').classList.remove('open');
+      deleteTargetId = null;
+    }
+
+    async function confirmDelete() {
+      if (!deleteTargetId) return;
+      setLoading('btn-confirm-delete', true);
+      const { ok } = await API.delete(`/admin/quizzes/${deleteTargetId}`);
+      setLoading('btn-confirm-delete', false);
+      if (!ok) { Toast.show('Failed to delete quiz', 'error'); return; }
+      document.getElementById(`row-${deleteTargetId}`)?.remove();
+      closeDelete();
+      Toast.show('Quiz deleted.', 'success');
+    }
+
+    document.getElementById('delete-modal').addEventListener('click', e => {
+      if (e.target === e.currentTarget) closeDelete();
+    });
+
+    function escapeHtml(str) { const d = document.createElement('div'); d.textContent = str||''; return d.innerHTML; }
+    load();
+  </script>
 </body>
 </html>

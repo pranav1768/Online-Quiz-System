@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>QuizSys — Results</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <style>
+    .result-hero { text-align: center; padding: 3rem 1rem 2rem; }
+    .circular-score {
+      width: 160px; height: 160px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center; flex-direction: column;
+      margin: 0 auto 1.5rem;
+      border: 4px solid var(--border);
+      font-family: var(--font-display);
+    }
+    .circular-score.pass { border-color: var(--success); background: var(--success-dim); }
+    .circular-score.fail { border-color: var(--danger);  background: var(--danger-dim);  }
+    .score-pct { font-size: 2.2rem; font-weight: 700; line-height: 1; }
+    .score-pct.pass { color: var(--success); }
+    .score-pct.fail { color: var(--danger);  }
+    .score-label { font-size: 0.8rem; color: var(--text-muted); margin-top: 0.2rem; }
+  </style>
+</head>
+<body>
+  <nav class="navbar">
+    <a class="navbar-brand" href="dashboard.html">Quiz<span>Sys</span></a>
+    <div class="navbar-links" id="navbar-links"></div>
+  </nav>
+
+  <div id="loading" class="spinner-wrap"><div class="spinner"></div></div>
+  <div id="results-ui" class="hidden">
+
+    <div class="result-hero">
+      <div id="circular-score" class="circular-score">
+        <div id="score-pct" class="score-pct">0%</div>
+        <div class="score-label">Score</div>
+      </div>
+      <h2 id="result-title"></h2>
+      <p id="result-sub" style="margin-top:0.4rem"></p>
+      <div style="display:flex;gap:0.75rem;justify-content:center;flex-wrap:wrap;margin-top:1rem">
+        <span id="badge-status" class="badge"></span>
+        <span id="badge-pts" class="badge badge-purple"></span>
+        <span id="badge-time" class="badge badge-info"></span>
+      </div>
+    </div>
+
+    <div class="container" style="max-width:760px;padding-bottom:3rem">
+
+      <!-- Stats row -->
+      <div class="stats-grid" style="grid-template-columns:repeat(4,1fr)" id="stats-row"></div>
+
+      <!-- Answer Review -->
+      <div style="margin-top:1.5rem">
+        <h3 style="font-family:var(--font);font-weight:600;margin-bottom:1rem">📋 Answer Review</h3>
+        <div id="answers-list"></div>
+      </div>
+
+      <!-- Actions -->
+      <div style="display:flex;gap:1rem;margin-top:2rem;flex-wrap:wrap">
+        <a href="dashboard.html" class="btn btn-secondary">← Back to Dashboard</a>
+        <a href="my-results.html" class="btn btn-primary">View All My Results</a>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/utils.js"></script>
+  <script>
+    if (!Auth.requireAuth()) throw new Error();
+    populateNavbar('student');
+
+    const params    = new URLSearchParams(location.search);
+    const attemptId = parseInt(params.get('attemptId'));
+    if (!attemptId) location.href = 'dashboard.html';
+
+    async function loadResults() {
+      const { ok, data } = await API.get(`/quizzes/results/${attemptId}`);
+      document.getElementById('loading').classList.add('hidden');
+
+      if (!ok) {
+        document.body.innerHTML += `<div class="container" style="padding:4rem 0;text-align:center"><p style="color:var(--danger)">${data.message}</p><a href="dashboard.html" class="btn btn-secondary mt-2">← Back</a></div>`;
+        return;
+      }
+
+      const { attempt, answers } = data;
+      const passed = attempt.passed;
+
+      // Circular score
+      const pct = parseFloat(attempt.percentage).toFixed(1);
+      const circ = document.getElementById('circular-score');
+      circ.classList.add(passed ? 'pass' : 'fail');
+      const pctEl = document.getElementById('score-pct');
+      pctEl.textContent = `${pct}%`;
+      pctEl.classList.add(passed ? 'pass' : 'fail');
+
+      // Title
+      document.getElementById('result-title').textContent = attempt.quiz_title;
+      document.getElementById('result-sub').textContent   = attempt.quiz_description || '';
+
+      // Badges
+      document.getElementById('badge-status').className = `badge ${passed ? 'badge-success' : 'badge-danger'}`;
+      document.getElementById('badge-status').textContent = passed ? '✓ PASSED' : '✗ FAILED';
+      document.getElementById('badge-pts').textContent    = `${attempt.score}/${attempt.total_points} pts`;
+      document.getElementById('badge-time').textContent   =
+        attempt.submitted_at ? `Submitted ${formatDate(attempt.submitted_at)}` : 'Timed Out';
+
+      // Stats
+      const correct = answers.filter(a => a.is_correct).length;
+      const wrong   = answers.length - correct;
+      document.getElementById('stats-row').innerHTML = `
+        <div class="stat-card"><div class="stat-value" style="color:var(--success)">${correct}</div><div class="stat-label">Correct</div></div>
+        <div class="stat-card"><div class="stat-value" style="color:var(--danger)">${wrong}</div><div class="stat-label">Wrong</div></div>
+        <div class="stat-card"><div class="stat-value">${answers.length}</div><div class="stat-label">Total Qs</div></div>
+        <div class="stat-card"><div class="stat-value" style="color:var(--warning)">${attempt.passing_score}%</div><div class="stat-label">Pass Mark</div></div>
+      `;
+
+      // Answer review
+      const list = document.getElementById('answers-list');
+      list.innerHTML = answers.map((a, i) => `
+        <div class="answer-item ${a.is_correct ? 'correct' : 'wrong'}">
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:1rem">
+            <div style="font-size:0.88rem;font-weight:600;flex:1">${i+1}. ${escapeHtml(a.question_text)}</div>
+            <span class="badge ${a.is_correct ? 'badge-success' : 'badge-danger'}" style="flex-shrink:0">
+              ${a.is_correct ? `+${a.points_earned}` : '0'} / ${a.points} pt
+            </span>
+          </div>
+          <div style="margin-top:0.6rem;font-size:0.85rem">
+            <div>Your answer: <strong style="color:${a.is_correct ? 'var(--success)' : 'var(--danger)'}">${escapeHtml(a.selected_answer || 'Not answered')}</strong></div>
+            ${!a.is_correct ? `<div style="margin-top:0.2rem">Correct answer: <strong style="color:var(--success)">${escapeHtml(a.correct_answer)}</strong></div>` : ''}
+          </div>
+        </div>
+      `).join('');
+
+      document.getElementById('results-ui').classList.remove('hidden');
+    }
+
+    function escapeHtml(str) {
+      const d = document.createElement('div');
+      d.textContent = str || '';
+      return d.innerHTML;
+    }
+
+    loadResults();
+  </script>
+</body>
+</html>

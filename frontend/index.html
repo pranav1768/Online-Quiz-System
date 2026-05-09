@@ -2,131 +2,191 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Quiz System — Login</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>QuizSys — Login</title>
   <link rel="stylesheet" href="css/style.css" />
+  <style>
+    .tab-btns { display: flex; gap: 0; background: var(--bg-input); border-radius: var(--radius-sm); padding: 4px; margin-bottom: 1.75rem; }
+    .tab-btn  { flex: 1; padding: 0.5rem; border: none; background: transparent; color: var(--text-muted); cursor: pointer; border-radius: 6px; font-family: var(--font); font-size: 0.9rem; font-weight: 600; transition: var(--transition); }
+    .tab-btn.active { background: var(--bg-card); color: var(--text); box-shadow: 0 1px 4px rgba(0,0,0,0.3); }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; animation: fadeIn 0.3s ease; }
+    .demo-credentials { background: var(--bg-input); border: 1px dashed var(--border); border-radius: var(--radius-sm); padding: 0.75rem 1rem; margin-top: 1.25rem; font-size: 0.82rem; }
+    .demo-credentials code { font-size: 0.82rem; }
+  </style>
 </head>
 <body>
+  <div class="auth-page">
+    <div class="auth-card">
+      <div class="auth-logo">
+        <h1>Quiz<span style="color:var(--accent)">Sys</span></h1>
+        <p>Online Assessment Platform</p>
+      </div>
 
-<div class="auth-wrapper">
-  <div class="auth-box">
+      <!-- Tabs -->
+      <div class="tab-btns">
+        <button class="tab-btn active" onclick="switchTab('login')">Login</button>
+        <button class="tab-btn" onclick="switchTab('register')">Register</button>
+      </div>
 
-    <!-- Logo -->
-    <div class="auth-logo">
-      <h2>Quiz<span>System</span></h2>
-      <p>Online Quiz Platform</p>
+      <!-- LOGIN FORM -->
+      <div id="tab-login" class="tab-panel active">
+        <div id="login-alert" class="alert alert-error hidden"></div>
+
+        <div class="form-group">
+          <label class="form-label" for="login-email">Email</label>
+          <input id="login-email" type="email" class="form-control" placeholder="you@example.com" autocomplete="email" />
+          <div id="err-login-email" class="form-error hidden"></div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="login-pass">Password</label>
+          <input id="login-pass" type="password" class="form-control" placeholder="••••••••" autocomplete="current-password" />
+          <div id="err-login-pass" class="form-error hidden"></div>
+        </div>
+
+        <button id="btn-login" class="btn btn-primary btn-full btn-lg" onclick="handleLogin()">
+          Sign In
+        </button>
+
+        <div class="demo-credentials mt-2">
+          <strong style="color:var(--text-muted);font-size:0.8rem;">Demo credentials</strong><br />
+          Admin: <code>admin@quizsystem.com</code> / <code>Admin@123</code>
+        </div>
+      </div>
+
+      <!-- REGISTER FORM -->
+      <div id="tab-register" class="tab-panel">
+        <div id="register-alert" class="alert alert-error hidden"></div>
+
+        <div class="form-group">
+          <label class="form-label" for="reg-username">Username</label>
+          <input id="reg-username" type="text" class="form-control" placeholder="johndoe" autocomplete="username" />
+          <div id="err-reg-username" class="form-error hidden"></div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="reg-email">Email</label>
+          <input id="reg-email" type="email" class="form-control" placeholder="you@example.com" autocomplete="email" />
+          <div id="err-reg-email" class="form-error hidden"></div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="reg-pass">Password</label>
+          <input id="reg-pass" type="password" class="form-control" placeholder="Min 6 chars, 1 letter + 1 number" />
+          <div id="err-reg-pass" class="form-error hidden"></div>
+          <div class="form-hint">Must contain at least one letter and one number</div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="reg-confirm">Confirm Password</label>
+          <input id="reg-confirm" type="password" class="form-control" placeholder="••••••••" />
+          <div id="err-reg-confirm" class="form-error hidden"></div>
+        </div>
+
+        <button id="btn-register" class="btn btn-primary btn-full btn-lg" onclick="handleRegister()">
+          Create Account
+        </button>
+      </div>
+
     </div>
-
-    <!-- Tabs -->
-    <div class="tabs">
-      <button class="tab-btn active" onclick="showTab('login')">Login</button>
-      <button class="tab-btn"        onclick="showTab('register')">Register</button>
-    </div>
-
-    <!-- Message box (shows errors) -->
-    <div id="msg" class="alert hidden"></div>
-
-    <!-- ── LOGIN FORM ── -->
-    <div id="login-form">
-      <div class="form-group">
-        <label class="form-label">Email</label>
-        <input id="login-email" type="email" class="form-input" placeholder="you@example.com" />
-      </div>
-      <div class="form-group">
-        <label class="form-label">Password</label>
-        <input id="login-pass" type="password" class="form-input" placeholder="Your password" />
-      </div>
-      <button class="btn btn-blue btn-full" onclick="doLogin()">Login</button>
-
-      <p style="font-size:0.8rem;color:#888;margin-top:16px;text-align:center">
-        Demo admin: <strong>admin@quiz.com</strong> / <strong>admin123</strong>
-      </p>
-    </div>
-
-    <!-- ── REGISTER FORM ── -->
-    <div id="register-form" class="hidden">
-      <div class="form-group">
-        <label class="form-label">Full Name</label>
-        <input id="reg-name" type="text" class="form-input" placeholder="John Doe" />
-      </div>
-      <div class="form-group">
-        <label class="form-label">Email</label>
-        <input id="reg-email" type="email" class="form-input" placeholder="you@example.com" />
-      </div>
-      <div class="form-group">
-        <label class="form-label">Password (min 6 characters)</label>
-        <input id="reg-pass" type="password" class="form-input" placeholder="Password" />
-      </div>
-      <button class="btn btn-green btn-full" onclick="doRegister()">Create Account</button>
-    </div>
-
   </div>
-</div>
 
-<script src="js/app.js"></script>
-<script>
-  // If already logged in, go to dashboard
-  if (getToken()) {
-    const user = getUser();
-    window.location.href = user.role === 'admin' ? 'admin/dashboard.html' : 'dashboard.html';
-  }
+  <script src="js/utils.js"></script>
+  <script>
+    // Redirect if already logged in
+    Auth.redirectIfLoggedIn();
 
-  // Switch between Login and Register tabs
-  function showTab(tab) {
-    document.getElementById('login-form').classList.toggle('hidden', tab !== 'login');
-    document.getElementById('register-form').classList.toggle('hidden', tab !== 'register');
-    document.querySelectorAll('.tab-btn').forEach((btn, i) => {
-      btn.classList.toggle('active', (i === 0 && tab === 'login') || (i === 1 && tab === 'register'));
+    function switchTab(tab) {
+      document.querySelectorAll('.tab-btn').forEach((b, i) => b.classList.toggle('active', ['login','register'][i] === tab));
+      document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+      document.getElementById(`tab-${tab}`).classList.add('active');
+    }
+
+    // Press Enter to submit
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Enter') {
+        const loginPanel = document.getElementById('tab-login');
+        if (loginPanel.classList.contains('active')) handleLogin();
+        else handleRegister();
+      }
     });
-    document.getElementById('msg').classList.add('hidden');
-  }
 
-  // Login
-  async function doLogin() {
-    const email    = document.getElementById('login-email').value.trim();
-    const password = document.getElementById('login-pass').value;
+    async function handleLogin() {
+      hideError('login-alert');
+      const email    = document.getElementById('login-email').value.trim();
+      const password = document.getElementById('login-pass').value;
 
-    if (!email || !password) {
-      showMessage('msg', 'Please enter your email and password.'); return;
+      if (!email)    { document.getElementById('err-login-email').textContent = 'Email is required'; document.getElementById('err-login-email').classList.remove('hidden'); return; }
+      if (!password) { document.getElementById('err-login-pass').textContent  = 'Password is required'; document.getElementById('err-login-pass').classList.remove('hidden'); return; }
+
+      ['err-login-email','err-login-pass'].forEach(id => document.getElementById(id).classList.add('hidden'));
+
+      setLoading('btn-login', true);
+      try {
+        const { ok, data } = await API.post('/auth/login', { email, password });
+        if (!ok) {
+          const alert = document.getElementById('login-alert');
+          alert.textContent = data.message || 'Login failed.';
+          alert.classList.remove('hidden');
+          return;
+        }
+        Auth.setSession(data.token, data.user);
+        Toast.show('Login successful!', 'success');
+        setTimeout(() => {
+          window.location.href = data.user.role === 'admin'
+            ? 'admin/dashboard.html'
+            : 'dashboard.html';
+        }, 600);
+      } catch (err) {
+        document.getElementById('login-alert').textContent = 'Network error. Is the server running?';
+        document.getElementById('login-alert').classList.remove('hidden');
+      } finally {
+        setLoading('btn-login', false);
+      }
     }
 
-    const { ok, data } = await POST('/auth/login', { email, password });
+    async function handleRegister() {
+      const username = document.getElementById('reg-username').value.trim();
+      const email    = document.getElementById('reg-email').value.trim();
+      const password = document.getElementById('reg-pass').value;
+      const confirm  = document.getElementById('reg-confirm').value;
 
-    if (!ok) {
-      showMessage('msg', data.message); return;
+      // Clear previous errors
+      ['err-reg-username','err-reg-email','err-reg-pass','err-reg-confirm','register-alert']
+        .forEach(id => document.getElementById(id).classList.add('hidden'));
+
+      let valid = true;
+      if (!username) { showError('err-reg-username', 'Username is required'); valid = false; }
+      if (!email)    { showError('err-reg-email',    'Email is required');    valid = false; }
+      if (password.length < 6) { showError('err-reg-pass', 'Min 6 characters'); valid = false; }
+      if (password !== confirm) { showError('err-reg-confirm', 'Passwords do not match'); valid = false; }
+      if (!valid) return;
+
+      setLoading('btn-register', true);
+      try {
+        const { ok, data } = await API.post('/auth/register', { username, email, password });
+        if (!ok) {
+          const errors = data.errors || [];
+          if (errors.length > 0) {
+            errors.forEach(e => {
+              const map = { username: 'err-reg-username', email: 'err-reg-email', password: 'err-reg-pass' };
+              if (map[e.path]) showError(map[e.path], e.msg);
+            });
+          } else {
+            showError('register-alert', data.message || 'Registration failed.');
+          }
+          return;
+        }
+        Toast.show('Account created! Please log in.', 'success');
+        switchTab('login');
+        document.getElementById('login-email').value = email;
+      } catch (err) {
+        showError('register-alert', 'Network error. Is the server running?');
+      } finally {
+        setLoading('btn-register', false);
+      }
     }
-
-    saveLogin(data.token, data.user);
-    // Redirect based on role
-    window.location.href = data.user.role === 'admin' ? 'admin/dashboard.html' : 'dashboard.html';
-  }
-
-  // Register
-  async function doRegister() {
-    const name     = document.getElementById('reg-name').value.trim();
-    const email    = document.getElementById('reg-email').value.trim();
-    const password = document.getElementById('reg-pass').value;
-
-    if (!name || !email || !password) {
-      showMessage('msg', 'Please fill in all fields.'); return;
-    }
-
-    const { ok, data } = await POST('/auth/register', { name, email, password });
-
-    if (!ok) {
-      showMessage('msg', data.message); return;
-    }
-
-    showMessage('msg', 'Account created! You can now login.', 'green');
-    showTab('login');
-    document.getElementById('login-email').value = email;
-  }
-
-  // Press Enter to login
-  document.addEventListener('keydown', e => {
-    if (e.key === 'Enter') doLogin();
-  });
-</script>
-
+  </script>
 </body>
 </html>

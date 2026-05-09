@@ -1,94 +1,105 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Admin — Dashboard</title>
-  <link rel="stylesheet" href="../css/style.css"/>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>QuizSys — Admin Dashboard</title>
+  <link rel="stylesheet" href="../css/style.css" />
 </head>
 <body>
+  <nav class="navbar">
+    <a class="navbar-brand" href="dashboard.html">Quiz<span>Sys</span> <span style="font-size:0.7rem;color:var(--purple);font-family:var(--font);font-weight:600;background:rgba(188,140,255,0.1);border-radius:4px;padding:2px 6px">ADMIN</span></a>
+    <div class="navbar-links" id="navbar-links"></div>
+  </nav>
 
-<nav class="navbar">
-  <h1>Quiz<span>System</span> <span style="font-size:0.7rem;background:#3498db;color:white;padding:2px 8px;border-radius:4px;margin-left:6px">ADMIN</span></h1>
-  <div class="navbar-links" id="navbar-user"></div>
-</nav>
+  <div class="sidebar-layout">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <nav class="sidebar-nav">
+        <a href="dashboard.html" class="active">🏠 Dashboard</a>
+        <a href="quizzes.html">📝 Manage Quizzes</a>
+        <a href="create-quiz.html">➕ Create Quiz</a>
+        <a href="users.html">👥 Users</a>
+        <a href="results.html">📊 All Results</a>
+        <hr class="sidebar-divider" />
+        <a href="javascript:Auth.logout()">🚪 Logout</a>
+      </nav>
+    </aside>
 
-<div class="layout">
-
-  <!-- Sidebar -->
-  <div class="sidebar">
-    <a href="dashboard.html" class="active">🏠 Dashboard</a>
-    <a href="quizzes.html">📝 Manage Quizzes</a>
-    <a href="create-quiz.html">➕ Create Quiz</a>
-    <a href="results.html">📊 All Results</a>
-    <a href="users.html">👥 Users</a>
-    <a href="javascript:logout()" style="margin-top:auto">🚪 Logout</a>
-  </div>
-
-  <!-- Main Content -->
-  <div class="main">
-    <p class="page-title">Dashboard</p>
-    <p class="page-sub">Welcome back! Here's what's happening.</p>
-
-    <div id="loading" class="spinner-wrap"><div class="spinner"></div></div>
-
-    <div id="main-content" class="hidden">
-
-      <!-- Stats -->
-      <div class="stats-grid" id="stats"></div>
-
-      <!-- Recent Submissions -->
-      <div class="card">
-        <h3 style="margin-bottom:16px">Recent Submissions</h3>
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr><th>Student</th><th>Quiz</th><th>Score</th><th>Result</th><th>Date</th></tr>
-            </thead>
-            <tbody id="recent-rows"></tbody>
-          </table>
+    <!-- Main -->
+    <main class="main-content">
+      <div class="page-header">
+        <div>
+          <h2>Dashboard</h2>
+          <p id="admin-sub">Overview of your quiz platform</p>
         </div>
+        <a href="create-quiz.html" class="btn btn-primary">+ Create Quiz</a>
       </div>
 
-    </div>
+      <div id="loading" class="spinner-wrap"><div class="spinner"></div></div>
+
+      <div id="main-ui" class="hidden">
+        <!-- Stats -->
+        <div class="stats-grid" id="stats-grid"></div>
+
+        <!-- Recent Attempts -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Recent Submissions</div>
+            <div class="card-subtitle">Latest quiz attempts across all users</div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr><th>Student</th><th>Quiz</th><th>Score</th><th>Status</th><th>Submitted</th><th>Detail</th></tr>
+              </thead>
+              <tbody id="recent-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </main>
   </div>
-</div>
 
-<script src="../js/app.js"></script>
-<script>
-  requireAdmin();
-  fillNavbar();
+  <script src="../js/utils.js"></script>
+  <script>
+    if (!Auth.requireAuth(true)) throw new Error();
+    populateNavbar('admin');
 
-  async function load() {
-    const { ok, data } = await GET('/admin/dashboard');
-    document.getElementById('loading').classList.add('hidden');
-    if (!ok) { alert('Could not load dashboard.'); return; }
+    const user = Auth.getUser();
+    document.getElementById('admin-sub').textContent = `Hello, ${user.username}. Here's your platform overview.`;
 
-    document.getElementById('stats').innerHTML = `
-      <div class="stat-box"><div class="stat-num">${data.totalStudents}</div><div class="stat-label">Students</div></div>
-      <div class="stat-box"><div class="stat-num" style="color:#3498db">${data.totalQuizzes}</div><div class="stat-label">Quizzes</div></div>
-      <div class="stat-box"><div class="stat-num" style="color:#27ae60">${data.totalAttempts}</div><div class="stat-label">Submissions</div></div>
-      <div class="stat-box"><div class="stat-num" style="color:#f39c12">${data.avgScore || 0}%</div><div class="stat-label">Avg Score</div></div>
-    `;
+    async function load() {
+      const { ok, data } = await API.get('/admin/dashboard');
+      document.getElementById('loading').classList.add('hidden');
+      if (!ok) { Toast.show(data.message, 'error'); return; }
 
-    document.getElementById('recent-rows').innerHTML = data.recentResults.length === 0
-      ? '<tr><td colspan="5" style="text-align:center;color:#888;padding:20px">No submissions yet.</td></tr>'
-      : data.recentResults.map(r => `
-          <tr>
-            <td><strong>${r.name}</strong></td>
-            <td>${r.title}</td>
-            <td><strong style="color:${r.passed ? '#27ae60' : '#e74c3c'}">${parseFloat(r.percent).toFixed(1)}%</strong></td>
-            <td><span class="badge ${r.passed ? 'badge-green' : 'badge-red'}">${r.passed ? 'Passed' : 'Failed'}</span></td>
-            <td style="color:#888;font-size:0.82rem">${new Date(r.taken_at).toLocaleDateString('en-IN')}</td>
-          </tr>
-        `).join('');
+      const { stats, recentAttempts } = data;
+      document.getElementById('stats-grid').innerHTML = `
+        <div class="stat-card"><div class="stat-value">${stats.totalUsers}</div><div class="stat-label">Total Students</div></div>
+        <div class="stat-card"><div class="stat-value" style="color:var(--purple)">${stats.totalQuizzes}</div><div class="stat-label">Total Quizzes</div></div>
+        <div class="stat-card"><div class="stat-value" style="color:var(--success)">${stats.totalAttempts}</div><div class="stat-label">Submissions</div></div>
+        <div class="stat-card"><div class="stat-value" style="color:var(--warning)">${stats.avgScore || 0}%</div><div class="stat-label">Avg Score</div></div>
+      `;
 
-    document.getElementById('main-content').classList.remove('hidden');
-  }
+      document.getElementById('recent-tbody').innerHTML = recentAttempts.length === 0
+        ? '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:2rem">No submissions yet</td></tr>'
+        : recentAttempts.map(r => `
+            <tr>
+              <td><strong>${escapeHtml(r.username)}</strong></td>
+              <td>${escapeHtml(r.quiz_title)}</td>
+              <td><span style="font-weight:700;color:var(--accent)">${parseFloat(r.percentage).toFixed(1)}%</span></td>
+              <td><span class="badge ${r.status === 'submitted' ? 'badge-success' : 'badge-warning'}">${r.status}</span></td>
+              <td class="text-muted" style="font-size:0.82rem">${formatDate(r.submitted_at)}</td>
+              <td><a href="../results.html?attemptId=${r.id}" class="btn btn-secondary btn-sm" target="_blank">View</a></td>
+            </tr>
+          `).join('');
 
-  load();
-</script>
+      document.getElementById('main-ui').classList.remove('hidden');
+    }
 
+    function escapeHtml(str) { const d = document.createElement('div'); d.textContent = str||''; return d.innerHTML; }
+    load();
+  </script>
 </body>
 </html>
- 

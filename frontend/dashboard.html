@@ -1,80 +1,118 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Quiz System — Dashboard</title>
-  <link rel="stylesheet" href="css/style.css"/>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>QuizSys — Dashboard</title>
+  <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
+  <!-- NAVBAR -->
+  <nav class="navbar">
+    <a class="navbar-brand" href="dashboard.html">Quiz<span>Sys</span></a>
+    <div class="navbar-links" id="navbar-links"></div>
+  </nav>
 
-<!-- Navbar -->
-<nav class="navbar">
-  <h1>Quiz<span>System</span></h1>
-  <div class="navbar-links" id="navbar-user">
-    <a href="my-results.html">My Results</a>
+  <div class="container" style="padding-top:2rem; padding-bottom:3rem;">
+    <!-- Greeting -->
+    <div class="page-header">
+      <div>
+        <h2 id="greeting">Available Quizzes</h2>
+        <p id="subgreeting" style="margin-top:0.25rem"></p>
+      </div>
+      <a href="my-results.html" class="btn btn-secondary">📊 My Results</a>
+    </div>
+
+    <!-- Loading -->
+    <div id="loading" class="spinner-wrap"><div class="spinner"></div></div>
+
+    <!-- Alert -->
+    <div id="page-alert" class="alert hidden"></div>
+
+    <!-- Quiz Grid -->
+    <div id="quiz-grid" class="quiz-grid hidden"></div>
+
+    <!-- Empty -->
+    <div id="empty" class="hidden" style="text-align:center;padding:4rem 0">
+      <div style="font-size:3rem">📝</div>
+      <h3 style="margin-top:1rem;font-family:var(--font)">No quizzes available</h3>
+      <p style="margin-top:0.5rem">Check back later for new quizzes.</p>
+    </div>
   </div>
-</nav>
 
-<!-- Page Content -->
-<div class="container">
-  <p class="page-title" id="greeting">Available Quizzes</p>
-  <p class="page-sub">Pick a quiz below and test your knowledge!</p>
+  <script src="js/utils.js"></script>
+  <script>
+    if (!Auth.requireAuth()) throw new Error('not auth');
+    populateNavbar('student');
 
-  <!-- Loading spinner -->
-  <div id="loading" class="spinner-wrap"><div class="spinner"></div></div>
+    const user = Auth.getUser();
+    document.getElementById('greeting').textContent = `Welcome, ${user.username}!`;
+    document.getElementById('subgreeting').textContent = 'Choose a quiz below to get started.';
 
-  <!-- Quizzes will appear here -->
-  <div id="quiz-grid" class="quiz-grid hidden"></div>
+    async function loadQuizzes() {
+      const { ok, data } = await API.get('/quizzes');
+      document.getElementById('loading').classList.add('hidden');
 
-  <!-- Message if no quizzes -->
-  <div id="empty" class="card text-center hidden">
-    <p style="color:#888;padding:20px">No quizzes available right now. Check back later!</p>
-  </div>
-</div>
+      if (!ok) {
+        const alert = document.getElementById('page-alert');
+        alert.textContent = data.message || 'Failed to load quizzes.';
+        alert.className = 'alert alert-error';
+        return;
+      }
 
-<script src="js/app.js"></script>
-<script>
-  requireLogin();
-  fillNavbar();
+      const quizzes = data.quizzes;
+      if (quizzes.length === 0) { document.getElementById('empty').classList.remove('hidden'); return; }
 
-  // Greet the user
-  const user = getUser();
-  document.getElementById('greeting').textContent = `Hello, ${user.name}! 👋`;
-
-  // Load quizzes from server
-  async function loadQuizzes() {
-    const { ok, data } = await GET('/quizzes');
-    document.getElementById('loading').classList.add('hidden');
-
-    if (!ok) { alert('Could not load quizzes.'); return; }
-
-    const quizzes = data.quizzes;
-
-    if (quizzes.length === 0) {
-      document.getElementById('empty').classList.remove('hidden');
-      return;
+      const grid = document.getElementById('quiz-grid');
+      grid.classList.remove('hidden');
+      grid.innerHTML = quizzes.map(q => quizCard(q)).join('');
     }
 
-    // Build quiz cards
-    const grid = document.getElementById('quiz-grid');
-    grid.classList.remove('hidden');
-    grid.innerHTML = quizzes.map(q => `
-      <div class="quiz-card">
-        <h3>${q.title}</h3>
-        <p>${q.description || 'No description.'}</p>
-        <div class="quiz-meta">
-          <span class="meta-tag">⏱ ${q.time_limit} mins</span>
-          <span class="meta-tag orange">❓ ${q.total_questions} questions</span>
-          <span class="meta-tag green">✅ Pass: ${q.pass_mark}%</span>
+    function quizCard(q) {
+      const attempted   = q.already_attempted;
+      const inProgress  = q.active_attempt_id;
+      const statusBadge = attempted
+        ? '<span class="badge badge-success">Completed</span>'
+        : inProgress
+          ? '<span class="badge badge-warning">In Progress</span>'
+          : '<span class="badge badge-info">Available</span>';
+
+      const actionBtn = attempted
+        ? `<a href="my-results.html" class="btn btn-secondary btn-sm">View Results</a>`
+        : inProgress
+          ? `<a href="quiz.html?id=${q.id}" class="btn btn-warning btn-sm" style="background:var(--warning-dim);color:var(--warning);border-color:var(--warning)">Resume Quiz</a>`
+          : `<a href="quiz.html?id=${q.id}" class="btn btn-primary btn-sm">Start Quiz</a>`;
+
+      return `
+        <div class="card fade-in">
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:0.75rem">
+            <div style="font-size:1.4rem">📝</div>
+            ${statusBadge}
+          </div>
+          <h3 style="font-size:1rem;font-weight:600;font-family:var(--font);margin-bottom:0.5rem">${escapeHtml(q.title)}</h3>
+          <p style="font-size:0.85rem;margin-bottom:1rem;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">
+            ${escapeHtml(q.description || 'No description provided.')}
+          </p>
+          <div style="display:flex;flex-wrap:wrap;gap:0.5rem;margin-bottom:1.25rem">
+            <span class="badge badge-purple">⏱ ${q.duration_minutes} min</span>
+            <span class="badge badge-info">❓ ${q.question_count} questions</span>
+            <span class="badge badge-warning">🎯 Pass: ${q.passing_score}%</span>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <span class="text-sm text-muted mono">By ${escapeHtml(q.created_by)}</span>
+            ${actionBtn}
+          </div>
         </div>
-        <a href="quiz.html?id=${q.id}" class="btn btn-blue btn-full">Start Quiz</a>
-      </div>
-    `).join('');
-  }
+      `;
+    }
 
-  loadQuizzes();
-</script>
+    function escapeHtml(str) {
+      const d = document.createElement('div');
+      d.textContent = str || '';
+      return d.innerHTML;
+    }
 
+    loadQuizzes();
+  </script>
 </body>
 </html>

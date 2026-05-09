@@ -1,100 +1,107 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Quiz System — My Results</title>
-  <link rel="stylesheet" href="css/style.css"/>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>QuizSys — My Results</title>
+  <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
+  <nav class="navbar">
+    <a class="navbar-brand" href="dashboard.html">Quiz<span>Sys</span></a>
+    <div class="navbar-links" id="navbar-links"></div>
+  </nav>
 
-<nav class="navbar">
-  <h1>Quiz<span>System</span></h1>
-  <div class="navbar-links" id="navbar-user">
-    <a href="dashboard.html">← Dashboard</a>
-  </div>
-</nav>
+  <div class="container" style="padding-top:2rem;padding-bottom:3rem">
+    <div class="page-header">
+      <div>
+        <h2>My Results</h2>
+        <p>Your quiz history and performance</p>
+      </div>
+      <a href="dashboard.html" class="btn btn-secondary">← Dashboard</a>
+    </div>
 
-<div class="container">
-  <p class="page-title">My Results</p>
-  <p class="page-sub">All your past quiz attempts</p>
+    <div id="loading" class="spinner-wrap"><div class="spinner"></div></div>
+    <div id="empty" class="hidden" style="text-align:center;padding:4rem 0">
+      <div style="font-size:3rem">📊</div>
+      <h3 style="margin-top:1rem;font-family:var(--font)">No results yet</h3>
+      <p>Complete a quiz to see your results here.</p>
+      <a href="dashboard.html" class="btn btn-primary mt-2">Take a Quiz</a>
+    </div>
 
-  <div id="loading" class="spinner-wrap"><div class="spinner"></div></div>
+    <div id="results-wrap" class="hidden">
+      <!-- Summary stats -->
+      <div class="stats-grid" id="stats-grid" style="margin-bottom:2rem"></div>
 
-  <!-- Stats -->
-  <div id="stats" class="stats-grid hidden"></div>
-
-  <!-- Results Table -->
-  <div id="table-wrap" class="card hidden">
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th>#</th>
-            <th>Quiz</th>
-            <th>Score</th>
-            <th>Result</th>
-            <th>Date</th>
-          </tr>
-        </thead>
-        <tbody id="results-rows"></tbody>
-      </table>
+      <!-- Table -->
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Quiz</th>
+              <th>Score</th>
+              <th>Points</th>
+              <th>Status</th>
+              <th>Submitted</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="results-tbody"></tbody>
+        </table>
+      </div>
     </div>
   </div>
 
-  <div id="empty" class="card text-center hidden">
-    <p style="color:#888;padding:20px">You haven't taken any quizzes yet.</p>
-    <a href="dashboard.html" class="btn btn-blue">Take a Quiz</a>
-  </div>
-</div>
+  <script src="js/utils.js"></script>
+  <script>
+    if (!Auth.requireAuth()) throw new Error();
+    populateNavbar('student');
 
-<script src="js/app.js"></script>
-<script>
-  requireLogin();
-  fillNavbar();
+    async function load() {
+      const { ok, data } = await API.get('/quizzes/my/results');
+      document.getElementById('loading').classList.add('hidden');
+      if (!ok || data.results.length === 0) { document.getElementById('empty').classList.remove('hidden'); return; }
 
-  async function loadResults() {
-    const { ok, data } = await GET('/my-results');
-    document.getElementById('loading').classList.add('hidden');
+      const results = data.results;
 
-    if (!ok || data.results.length === 0) {
-      document.getElementById('empty').classList.remove('hidden');
-      return;
+      // Stats
+      const passed = results.filter(r => r.passed).length;
+      const avg    = (results.reduce((s, r) => s + parseFloat(r.percentage), 0) / results.length).toFixed(1);
+      const best   = Math.max(...results.map(r => parseFloat(r.percentage))).toFixed(1);
+
+      document.getElementById('stats-grid').innerHTML = `
+        <div class="stat-card"><div class="stat-value">${results.length}</div><div class="stat-label">Total Attempts</div></div>
+        <div class="stat-card"><div class="stat-value" style="color:var(--success)">${passed}</div><div class="stat-label">Passed</div></div>
+        <div class="stat-card"><div class="stat-value" style="color:var(--accent)">${avg}%</div><div class="stat-label">Avg Score</div></div>
+        <div class="stat-card"><div class="stat-value" style="color:var(--purple)">${best}%</div><div class="stat-label">Best Score</div></div>
+      `;
+
+      document.getElementById('results-tbody').innerHTML = results.map((r, i) => `
+        <tr>
+          <td class="mono text-muted">${i + 1}</td>
+          <td><strong style="font-weight:600">${escapeHtml(r.quiz_title)}</strong></td>
+          <td>
+            <span style="font-size:1rem;font-weight:700;color:${r.passed ? 'var(--success)' : 'var(--danger)'}">${parseFloat(r.percentage).toFixed(1)}%</span>
+          </td>
+          <td class="mono">${r.score}/${r.total_points}</td>
+          <td>
+            <span class="badge ${r.passed ? 'badge-success' : 'badge-danger'}">${r.passed ? 'Passed' : 'Failed'}</span>
+            ${r.status === 'timed_out' ? '<span class="badge badge-warning" style="margin-left:4px">Timed Out</span>' : ''}
+          </td>
+          <td class="text-muted" style="font-size:0.82rem">${formatDate(r.submitted_at)}</td>
+          <td><a href="results.html?attemptId=${r.id}" class="btn btn-secondary btn-sm">Review</a></td>
+        </tr>
+      `).join('');
+
+      document.getElementById('results-wrap').classList.remove('hidden');
     }
 
-    const results = data.results;
+    function escapeHtml(str) {
+      const d = document.createElement('div'); d.textContent = str || ''; return d.innerHTML;
+    }
 
-    // Calculate quick stats
-    const passed  = results.filter(r => r.passed).length;
-    const avg     = (results.reduce((sum, r) => sum + parseFloat(r.percent), 0) / results.length).toFixed(1);
-
-    document.getElementById('stats').innerHTML = `
-      <div class="stat-box"><div class="stat-num">${results.length}</div><div class="stat-label">Total Attempts</div></div>
-      <div class="stat-box"><div class="stat-num" style="color:#27ae60">${passed}</div><div class="stat-label">Passed</div></div>
-      <div class="stat-box"><div class="stat-num" style="color:#e74c3c">${results.length - passed}</div><div class="stat-label">Failed</div></div>
-      <div class="stat-box"><div class="stat-num" style="color:#3498db">${avg}%</div><div class="stat-label">Average Score</div></div>
-    `;
-    document.getElementById('stats').classList.remove('hidden');
-
-    // Build table rows
-    document.getElementById('results-rows').innerHTML = results.map((r, i) => `
-      <tr>
-        <td>${i + 1}</td>
-        <td><strong>${r.quiz_title}</strong></td>
-        <td>
-          <strong style="color:${r.passed ? '#27ae60' : '#e74c3c'}">${parseFloat(r.percent).toFixed(1)}%</strong>
-          <span style="color:#888;font-size:0.8rem"> (${r.score}/${r.total})</span>
-        </td>
-        <td><span class="badge ${r.passed ? 'badge-green' : 'badge-red'}">${r.passed ? 'Passed' : 'Failed'}</span></td>
-        <td style="color:#888;font-size:0.85rem">${new Date(r.taken_at).toLocaleDateString('en-IN')}</td>
-      </tr>
-    `).join('');
-
-    document.getElementById('table-wrap').classList.remove('hidden');
-  }
-
-  loadResults();
-</script>
-
+    load();
+  </script>
 </body>
 </html>
