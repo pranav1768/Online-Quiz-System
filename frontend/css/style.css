@@ -122,7 +122,7 @@ code { font-family: var(--font-mono); background: var(--bg-input); padding: 2px 
 }
 
 .btn-primary   { background: var(--accent);   color: #0d1117; border-color: var(--accent); }
-.btn-primary:hover { background: #79c0ff; border-color: #79c0ff; transform: translateY(-1px); }
+.btn-primary:hover { background: #16181b; border-color: #79c0ff; transform: translateY(-1px); }
 .btn-secondary { background: transparent; color: var(--text); border-color: var(--border); }
 .btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
 .btn-danger    { background: var(--danger-dim); color: var(--danger); border-color: var(--danger); }
